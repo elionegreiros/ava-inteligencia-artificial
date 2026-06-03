@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Avaliação - Introdução à Educação Digital | 2ª Série - Desenvolvimento de Sistemas</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="quiz-wrapper">
+    <div class="quiz-header">
+        <h1>Introdução à Educação Digital</h1>
+        <div class="course-info">
+            <span class="course-badge">2ª Série - Desenvolvimento de Sistemas</span>
+            <span class="course-badge">Disciplina: Inteligência Artificial - Educação Digital</span>
+        </div>
+        <p>CETI - Antonio Gentil Dantas Sobrinho</p>
+        <span class="badge-info">🔒 Avaliação individual | Respostas travadas | Protegido contra cópia</span>
+    </div>
+
+    <div class="student-card">
+        <label>👤 Nome completo do aluno:</label>
+        <input type="text" id="studentName" placeholder="Digite seu nome completo..." autocomplete="off">
+    </div>
+
+    <div class="student-card secondary">
+        <label>📚 Número de matrícula (opcional):</label>
+        <input type="text" id="studentId" placeholder="Digite seu número de matrícula" autocomplete="off">
+    </div>
+
+    <div id="questionsContainer" class="questions-area"></div>
+
+    <div class="action-bar">
+        <button class="btn btn-primary" id="finalizeBtn">📊 Finalizar Avaliação</button>
+    </div>
+
+    <div class="status-footer">
+        <div class="footer-left">🔒 Sistema anti-trapaça ativo (3 infrações = bloqueio)</div>
+        <div class="footer-center">CETI - Antonio Gentil Dantas Sobrinho</div>
+        <div class="score-badge" id="progressCounter">0 / 15 respondidas</div>
+    </div>
+</div>
+
+<div class="protection-notice">
+    ⚠️ SISTEMA ANTI-TRAPAÇA: 3 tentativas de cópia/captura = AVALIAÇÃO BLOQUEADA
+</div>
+
+<script src="questions.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
