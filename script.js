@@ -1,6 +1,7 @@
 // ================================================================
 // SISTEMA ANTI-TRAPAÇA - CONTADOR DE INFRAÇÕES
 // 3 tentativas = AVALIAÇÃO BLOQUEADA
+// CADA AÇÃO PROIBIDA = 1 INFRAÇÃO IMEDIATA
 // ================================================================
 
 const STORAGE_KEY = 'infracoesQuiz';
@@ -13,11 +14,11 @@ let totalInfracoes = parseInt(localStorage.getItem(STORAGE_KEY) || '0');
 let quizBloqueado = false;
 
 // ================================================================
-// CONTADOR DE CLIQUE DIREITO (máximo 4 usos)
+// CONTADOR DE CLIQUE DIREITO - BLOQUEIO IMEDIATO
 // ================================================================
 
 let cliqueDireitoCount = 0;
-const MAX_CLIQUE_DIREITO = 4;
+const MAX_CLIQUE_DIREITO = 1; // Agora bloqueia no primeiro clique!
 
 // ================================================================
 // EXTENSÕES ESPECÍFICAS PARA BLOQUEAR
@@ -30,31 +31,179 @@ const EXTENSOES_BLOQUEADAS = [
 ];
 
 // ================================================================
-// PROTEÇÃO 1: BLOQUEIO DE SELEÇÃO DE TEXTO (arrastar)
+// PROTEÇÃO 1: BLOQUEIO DE ATUALIZAÇÃO DA PÁGINA (F5, Ctrl+R, Ctrl+F5)
 // ================================================================
 
-// Impede seleção de texto com o mouse
-document.addEventListener('mousedown', function(e) {
+document.addEventListener('keydown', function(e) {
     if (quizBloqueado) return;
-    // Permite clicar em inputs e textareas, mas não selecionar texto
-    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+    
+    // F5
+    if (e.key === 'F5') {
         e.preventDefault();
+        registrarInfracaoImediata('Tentativa de atualizar página (F5)');
+        return false;
+    }
+    
+    // Ctrl+F5 (atualização forçada)
+    if (e.ctrlKey && e.key === 'F5') {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de atualização forçada (Ctrl+F5)');
+        return false;
+    }
+    
+    // Ctrl+R
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de atualizar página (Ctrl+R)');
+        return false;
+    }
+    
+    // Ctrl+Shift+R (atualização forçada sem cache)
+    if (e.ctrlKey && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de atualização forçada (Ctrl+Shift+R)');
         return false;
     }
 });
 
-document.addEventListener('dragstart', function(e) {
+// Bloqueia o botão de voltar/avançar do navegador
+history.pushState(null, null, location.href);
+window.addEventListener('popstate', function() {
+    if (!quizBloqueado) {
+        registrarInfracaoImediata('Tentativa de usar voltar/avançar no navegador');
+        history.pushState(null, null, location.href);
+    }
+});
+
+// ================================================================
+// PROTEÇÃO 2: BLOQUEIO DE CÓPIA (Ctrl+C)
+// ================================================================
+
+document.addEventListener('keydown', function(e) {
+    if (quizBloqueado) return;
+    
+    if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de copiar (Ctrl+C)');
+        return false;
+    }
+});
+
+document.addEventListener('copy', function(e) {
     if (quizBloqueado) return;
     e.preventDefault();
-    registrarInfracao('Tentativa de arrastar para selecionar');
+    registrarInfracaoImediata('Tentativa de copiar');
     return false;
 });
 
+// ================================================================
+// PROTEÇÃO 3: BLOQUEIO DE SELECIONAR TUDO (Ctrl+A)
+// ================================================================
+
+document.addEventListener('keydown', function(e) {
+    if (quizBloqueado) return;
+    
+    if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de selecionar tudo (Ctrl+A)');
+        return false;
+    }
+});
+
+// ================================================================
+// PROTEÇÃO 4: BLOQUEIO DE COLAR (Ctrl+V)
+// ================================================================
+
+document.addEventListener('keydown', function(e) {
+    if (quizBloqueado) return;
+    
+    if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de colar (Ctrl+V)');
+        return false;
+    }
+    
+    if (e.shiftKey && e.key === 'Insert') {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de colar (Shift+Insert)');
+        return false;
+    }
+    
+    if (e.ctrlKey && e.shiftKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de colar sem formatação');
+        return false;
+    }
+});
+
+document.addEventListener('paste', function(e) {
+    if (quizBloqueado) return;
+    e.preventDefault();
+    registrarInfracaoImediata('Tentativa de colar');
+    return false;
+});
+
+// ================================================================
+// PROTEÇÃO 5: BLOQUEIO DE RECORTAR (Ctrl+X)
+// ================================================================
+
+document.addEventListener('keydown', function(e) {
+    if (quizBloqueado) return;
+    
+    if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de recortar (Ctrl+X)');
+        return false;
+    }
+});
+
+document.addEventListener('cut', function(e) {
+    if (quizBloqueado) return;
+    e.preventDefault();
+    registrarInfracaoImediata('Tentativa de recortar');
+    return false;
+});
+
+// ================================================================
+// PROTEÇÃO 6: CLIQUE DIREITO - BLOQUEIO IMEDIATO
+// ================================================================
+
+document.addEventListener('contextmenu', function(e) {
+    if (quizBloqueado) return;
+    e.preventDefault();
+    cliqueDireitoCount++;
+    registrarInfracaoImediata('Tentativa de clique direito');
+    return false;
+});
+
+// ================================================================
+// PROTEÇÃO 7: BLOQUEIO DE SELEÇÃO DE TEXTO (arrastar o mouse)
+// ================================================================
+
+// Impede início de seleção com o mouse
+document.addEventListener('mousedown', function(e) {
+    if (quizBloqueado) return;
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de selecionar texto (arrastar mouse)');
+        return false;
+    }
+});
+
+// Impede arrastar para selecionar
+document.addEventListener('dragstart', function(e) {
+    if (quizBloqueado) return;
+    e.preventDefault();
+    registrarInfracaoImediata('Tentativa de arrastar para selecionar');
+    return false;
+});
+
+// Impede início de seleção
 document.addEventListener('selectstart', function(e) {
     if (quizBloqueado) return;
-    // Permite seleção apenas dentro de textareas
     if (e.target.tagName !== 'TEXTAREA') {
         e.preventDefault();
+        registrarInfracaoImediata('Tentativa de selecionar texto');
         return false;
     }
 });
@@ -64,83 +213,85 @@ document.addEventListener('keydown', function(e) {
     if (quizBloqueado) return;
     if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
-        registrarInfracao('Tentativa de seleção com Shift + setas');
+        registrarInfracaoImediata('Tentativa de seleção com Shift + setas');
         return false;
     }
 });
 
 // ================================================================
-// PROTEÇÃO 2: BLOQUEIO DE COLAR (Ctrl+V)
+// PROTEÇÃO 8: DETECÇÃO DE MUDANÇA DE ABA - BLOQUEIO IMEDIATO
+// ================================================================
+
+let ultimoFocoTime = Date.now();
+
+document.addEventListener('visibilitychange', function() {
+    if (quizBloqueado) return;
+    
+    if (document.hidden) {
+        // Aluno saiu da aba - registra imediatamente
+        ultimoFocoTime = Date.now();
+        registrarInfracaoImediata('Mudança de aba detectada');
+    }
+});
+
+window.addEventListener('blur', function() {
+    if (quizBloqueado) return;
+    ultimoFocoTime = Date.now();
+    // Pequeno delay para não registrar falso positivo
+    setTimeout(() => {
+        if (document.hidden) {
+            registrarInfracaoImediata('Janela perdeu foco (mudança de aba)');
+        }
+    }, 100);
+});
+
+// ================================================================
+// PROTEÇÃO 9: BLOQUEIO DE BUSCAR (Ctrl+F e F3)
 // ================================================================
 
 document.addEventListener('keydown', function(e) {
     if (quizBloqueado) return;
     
-    // Bloqueia Ctrl+V (colar)
-    if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+    if (e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
-        registrarInfracao('Tentativa de colar (Ctrl+V)');
+        registrarInfracaoImediata('Tentativa de buscar (Ctrl+F)');
         return false;
     }
     
-    // Bloqueia Shift+Insert (colar alternativo)
-    if (e.shiftKey && e.key === 'Insert') {
+    if (e.key === 'F3') {
         e.preventDefault();
-        registrarInfracao('Tentativa de colar (Shift+Insert)');
-        return false;
-    }
-    
-    // Bloqueia Ctrl+Shift+V (colar sem formatação)
-    if (e.ctrlKey && e.shiftKey && (e.key === 'v' || e.key === 'V')) {
-        e.preventDefault();
-        registrarInfracao('Tentativa de colar sem formatação');
+        registrarInfracaoImediata('Tentativa de buscar (F3)');
         return false;
     }
 });
 
-// Bloqueia evento de paste
-document.addEventListener('paste', function(e) {
+// ================================================================
+// PROTEÇÃO 10: BLOQUEIO DE ATALHOS DE EXTENSÕES
+// ================================================================
+
+document.addEventListener('keydown', function(e) {
     if (quizBloqueado) return;
-    e.preventDefault();
-    registrarInfracao('Tentativa de colar');
-    return false;
-});
-
-// ================================================================
-// PROTEÇÃO 3: CLIQUE DIREITO LIMITADO (máximo 4 usos)
-// ================================================================
-
-function verificarCliqueDireito() {
-    if (quizBloqueado) return false;
     
-    cliqueDireitoCount++;
-    const tentativasRestantes = MAX_CLIQUE_DIREITO - cliqueDireitoCount;
-    
-    if (cliqueDireitoCount >= MAX_CLIQUE_DIREITO) {
-        // Bloqueia após 4 cliques
-        registrarInfracao(`Clique direito excedeu o limite (${MAX_CLIQUE_DIREITO} usos) - AVALIAÇÃO BLOQUEADA`);
+    if (e.ctrlKey && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Atalho de extensão (Ctrl+Shift+C)');
         return false;
-    } else {
-        alert(`⚠️ CLIQUE DIREITO DETECTADO!\n\nVocê usou ${cliqueDireitoCount} de ${MAX_CLIQUE_DIREITO} cliques permitidos.\nRestam ${tentativasRestantes} tentativa(s).\n\nApós ${MAX_CLIQUE_DIREITO} cliques, a avaliação será bloqueada.`);
-        return true;
     }
-}
-
-document.addEventListener('contextmenu', function(e) {
-    if (quizBloqueado) return;
-    e.preventDefault();
-    verificarCliqueDireito();
-    return false;
+    
+    if (e.ctrlKey && e.altKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        registrarInfracaoImediata('Atalho de extensão (Ctrl+Alt+C)');
+        return false;
+    }
 });
 
 // ================================================================
-// PROTEÇÃO 4: DETECÇÃO ESPECÍFICA DE EXTENSÕES
+// PROTEÇÃO 11: DETECÇÃO ESPECÍFICA DE EXTENSÕES
 // ================================================================
 
 function detectarExtensoesBloqueadas() {
     if (quizBloqueado) return false;
     
-    // Verifica elementos no DOM
     const todosElementos = document.querySelectorAll('*');
     
     for (let i = 0; i < todosElementos.length; i++) {
@@ -153,20 +304,18 @@ function detectarExtensoesBloqueadas() {
             const ext = EXTENSOES_BLOQUEADAS[j].toLowerCase();
             
             if (classes.includes(ext) || id.includes(ext) || innerText.includes(ext)) {
-                registrarInfracao(`Extensão bloqueada detectada: ${EXTENSOES_BLOQUEADAS[j]}`);
+                registrarInfracaoImediata(`Extensão bloqueada detectada: ${EXTENSOES_BLOQUEADAS[j]}`);
                 return true;
             }
         }
     }
     
-    // Verifica estilos computados (extensões que modificam CSS)
     const allElements = document.querySelectorAll('*');
     for (let i = 0; i < Math.min(allElements.length, 50); i++) {
         const el = allElements[i];
         const computedStyle = window.getComputedStyle(el);
         if (computedStyle.userSelect === 'text' && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
-            // Se encontrou elemento com user-select: text (proibido), provavelmente extensão
-            registrarInfracao('Extensão tentou modificar proteção de seleção');
+            registrarInfracaoImediata('Extensão tentou modificar proteção de seleção');
             return true;
         }
     }
@@ -174,87 +323,16 @@ function detectarExtensoesBloqueadas() {
     return false;
 }
 
-// Executa detecção a cada 3 segundos
 setInterval(function() {
     if (!quizBloqueado) {
         detectarExtensoesBloqueadas();
     }
 }, 3000);
 
-// Executa detecção imediatamente
 detectarExtensoesBloqueadas();
 
 // ================================================================
-// PROTEÇÃO 5: BLOQUEIO DE SELECIONAR TUDO E BUSCAR
-// ================================================================
-
-document.addEventListener('keydown', function(e) {
-    if (quizBloqueado) return;
-    
-    // Bloqueia Ctrl+A (selecionar tudo)
-    if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
-        e.preventDefault();
-        registrarInfracao('Tentativa de selecionar tudo (Ctrl+A)');
-        return false;
-    }
-    
-    // Bloqueia Ctrl+F (buscar)
-    if (e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
-        e.preventDefault();
-        registrarInfracao('Tentativa de buscar (Ctrl+F)');
-        return false;
-    }
-    
-    // Bloqueia F3 (buscar)
-    if (e.key === 'F3') {
-        e.preventDefault();
-        registrarInfracao('Tentativa de buscar (F3)');
-        return false;
-    }
-});
-
-// ================================================================
-// PROTEÇÃO 6: BLOQUEIO DE CÓPIA E RECORTE
-// ================================================================
-
-document.addEventListener('copy', function(e) {
-    if (quizBloqueado) return;
-    e.preventDefault();
-    registrarInfracao('Tentativa de copiar');
-    return false;
-});
-
-document.addEventListener('cut', function(e) {
-    if (quizBloqueado) return;
-    e.preventDefault();
-    registrarInfracao('Tentativa de recortar');
-    return false;
-});
-
-// ================================================================
-// PROTEÇÃO 7: BLOQUEIO DE ATALHOS DE EXTENSÕES
-// ================================================================
-
-document.addEventListener('keydown', function(e) {
-    if (quizBloqueado) return;
-    
-    // Ctrl+Shift+C (extensões de cópia)
-    if (e.ctrlKey && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
-        e.preventDefault();
-        registrarInfracao('Atalho de extensão (Ctrl+Shift+C)');
-        return false;
-    }
-    
-    // Ctrl+Alt+C
-    if (e.ctrlKey && e.altKey && (e.key === 'c' || e.key === 'C')) {
-        e.preventDefault();
-        registrarInfracao('Atalho de extensão (Ctrl+Alt+C)');
-        return false;
-    }
-});
-
-// ================================================================
-// PROTEÇÃO 8: LIMPEZA DO CLIPBOARD
+// PROTEÇÃO 12: LIMPEZA DO CLIPBOARD
 // ================================================================
 
 async function limparClipboard() {
@@ -268,14 +346,14 @@ if (navigator.clipboard) {
     const originalWrite = navigator.clipboard.writeText;
     navigator.clipboard.writeText = function(text) {
         if (!quizBloqueado) {
-            registrarInfracao('Tentativa de escrever no clipboard');
+            registrarInfracaoImediata('Tentativa de escrever no clipboard');
         }
         return originalWrite.call(this, '');
     };
 }
 
 // ================================================================
-// PROTEÇÃO 9: REAPLICAÇÃO CONSTANTE DE PROTEÇÕES CSS
+// PROTEÇÃO 13: REAPLICAÇÃO CONSTANTE DE PROTEÇÕES CSS
 // ================================================================
 
 const styleAntiCopy = document.createElement('style');
@@ -294,7 +372,6 @@ styleAntiCopy.textContent = `
 `;
 document.head.appendChild(styleAntiCopy);
 
-// Reaplica proteção a cada 2 segundos
 setInterval(function() {
     if (quizBloqueado) return;
     
@@ -305,7 +382,6 @@ setInterval(function() {
     `;
     document.head.appendChild(newStyle);
     
-    // Remove estilos antigos para não acumular
     const styles = document.querySelectorAll('style');
     if (styles.length > 10) {
         for (let i = 0; i < styles.length - 5; i++) {
@@ -317,32 +393,10 @@ setInterval(function() {
 }, 2000);
 
 // ================================================================
-// PROTEÇÃO 10: DETECÇÃO DE MUDANÇA DE ABA
+// FUNÇÃO PRINCIPAL DE REGISTRO DE INFRAÇÃO (BLOQUEIO IMEDIATO)
 // ================================================================
 
-let perdaFocoCount = 0;
-let ultimoFocoTime = Date.now();
-
-document.addEventListener('visibilitychange', function() {
-    if (quizBloqueado) return;
-    
-    if (document.hidden) {
-        ultimoFocoTime = Date.now();
-        console.log('⚠️ Aluno mudou de aba');
-    } else {
-        const tempoFora = Date.now() - ultimoFocoTime;
-        if (tempoFora > 500) {
-            perdaFocoCount++;
-            registrarInfracao(`Mudança de aba detectada - suspeita de consulta`);
-        }
-    }
-});
-
-// ================================================================
-// FUNÇÃO PRINCIPAL DE REGISTRO DE INFRAÇÃO
-// ================================================================
-
-function registrarInfracao(tipo) {
+function registrarInfracaoImediata(tipo) {
     if (quizBloqueado) return;
     
     totalInfracoes++;
@@ -355,10 +409,10 @@ function registrarInfracao(tipo) {
     if (totalInfracoes >= MAX_INFRACOES) {
         bloquearAvaliacao(tipo);
     } else {
-        alert(`⚠️ ${tipo.toUpperCase()} detectado!\n\nVocê cometeu ${totalInfracoes} de ${MAX_INFRACOES} infrações.\nRestam ${tentativasRestantes} tentativa(s) antes do bloqueio.\n\nRespeite as regras da avaliação!`);
+        alert(`⚠️ INFRAÇÃO DETECTADA!\n\nAção bloqueada: ${tipo}\n\nVocê cometeu ${totalInfracoes} de ${MAX_INFRACOES} infrações.\nRestam ${tentativasRestantes} tentativa(s) antes do bloqueio.\n\nATENÇÃO: A próxima infração bloqueará sua avaliação!`);
     }
     
-    console.log(`⚠️ Infração: ${tipo} | Total: ${totalInfracoes}/${MAX_INFRACOES}`);
+    console.log(`⚠️ INFRAÇÃO: ${tipo} | Total: ${totalInfracoes}/${MAX_INFRACOES}`);
 }
 
 // ================================================================
@@ -375,9 +429,9 @@ function bloquearAvaliacao(tipo) {
                 <div style="font-size: 4rem;">🚫</div>
                 <h2 style="color: #991b1b; margin: 1rem 0;">AVALIAÇÃO BLOQUEADA</h2>
                 <p style="color: #7f1d1d; margin-bottom: 1rem;">Você excedeu o número máximo de infrações (${MAX_INFRACOES}).</p>
-                <p style="color: #7f1d1d;">Motivo: ${tipo}</p>
+                <p style="color: #7f1d1d;">Motivo do bloqueio: ${tipo}</p>
                 <hr style="margin: 1rem 0; border-color: #fecaca;">
-                <p style="font-size: 0.8rem; color: #991b1b;">Infrações detectadas: ${totalInfracoes}</p>
+                <p style="font-size: 0.8rem; color: #991b1b;">Infrações registradas: ${totalInfracoes}</p>
                 <p style="font-size: 0.8rem; color: #991b1b;">Data do bloqueio: ${new Date().toLocaleString()}</p>
                 <button id="btnSolicitarDesbloqueio" style="background: #059669; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 2rem; margin-top: 1.5rem; cursor: pointer; font-weight: bold;">
                     🔓 Solicitar Desbloqueio ao Professor
@@ -410,6 +464,8 @@ function bloquearAvaliacao(tipo) {
     allRadios.forEach(radio => { radio.disabled = true; });
     
     localStorage.setItem('quizBloqueado', 'true');
+    
+    alert(`🚫 AVALIAÇÃO BLOQUEADA!\n\nMotivo: ${tipo}\n\nVocê atingiu o limite de ${MAX_INFRACOES} infrações.\n\nProcure o professor para desbloquear.`);
 }
 
 // ================================================================
@@ -567,14 +623,247 @@ window.addEventListener('load', function() {
 });
 
 // ================================================================
-// AQUI CONTINUA O RESTO DO SEU CÓDIGO ORIGINAL
-// (renderQuestions, updateProgress, calculateScore, finalizarAvaliacao, etc.)
+// LÓGICA PRINCIPAL DO QUIZ
 // ================================================================
 
-// NOTA: Mantenha todas as funções originais do seu script.js a partir daqui
-// (as funções de lógica do quiz: renderQuestions, onSelectOption, etc.)
+let selectedAnswers = new Array(multipleChoiceQuestions.length).fill(null);
+let questionLocked = new Array(multipleChoiceQuestions.length).fill(false);
+let essayAnswers = new Array(essayQuestions.length).fill("");
 
-console.log('✅ Sistema anti-trapaça ativado | Limite: ' + MAX_INFRACOES + ' infrações');
+const container = document.getElementById('questionsContainer');
+const finalizeBtn = document.getElementById('finalizeBtn');
+const progressSpan = document.getElementById('progressCounter');
+const studentNameInput = document.getElementById('studentName');
+const studentIdInput = document.getElementById('studentId');
+
+function updateProgress() {
+    if (quizBloqueado) return;
+    const mcAnswered = selectedAnswers.filter(idx => idx !== null).length;
+    const essayAnswered = essayAnswers.filter(ans => ans.trim() !== "").length;
+    const totalAnswered = mcAnswered + essayAnswered;
+    progressSpan.innerText = `${totalAnswered} / ${TOTAL_QUESTIONS} respondidas`;
+}
+
+function calculateScore() {
+    let correctCount = 0;
+    for (let i = 0; i < multipleChoiceQuestions.length; i++) {
+        if (selectedAnswers[i] !== null && selectedAnswers[i] === multipleChoiceQuestions[i].correta) {
+            correctCount++;
+        }
+    }
+    const mcScore = (correctCount / multipleChoiceQuestions.length) * 6;
+    const essayAnsweredCount = essayAnswers.filter(ans => ans.trim() !== "").length;
+    const essayScore = (essayAnsweredCount / essayQuestions.length) * 4;
+    return mcScore + essayScore;
+}
+
+function finalizarAvaliacao() {
+    if (quizBloqueado) {
+        alert("🚫 Avaliação bloqueada! Não é possível finalizar.");
+        return false;
+    }
+    
+    const nome = studentNameInput.value.trim();
+    if (nome === "") {
+        alert("⚠️ Por favor, digite seu nome antes de finalizar a avaliação.");
+        return false;
+    }
+    
+    const allMcAnswered = selectedAnswers.every(idx => idx !== null);
+    if (!allMcAnswered) {
+        alert(`❌ Você respondeu apenas ${selectedAnswers.filter(i=>i!==null).length} de ${multipleChoiceQuestions.length} questões. Responda todas antes de finalizar.`);
+        return false;
+    }
+    
+    const nota = calculateScore();
+    const notaFormatada = nota.toFixed(1);
+    const mcAcertos = selectedAnswers.filter((ans, idx) => ans === multipleChoiceQuestions[idx].correta).length;
+    
+    const containerQuestoes = document.getElementById('questionsContainer');
+    if (containerQuestoes) containerQuestoes.style.display = 'none';
+    
+    const resultDiv = document.createElement('div');
+    resultDiv.style.cssText = `
+        background: white;
+        border-radius: 1.5rem;
+        padding: 2rem;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+    `;
+    resultDiv.innerHTML = `
+        <div style="font-size: 3rem;">📊</div>
+        <h2 style="color: #064e3b; margin: 1rem 0;">Avaliação Finalizada!</h2>
+        <p style="font-size: 1.2rem; margin-bottom: 1rem;"><strong>${escapeHtml(nome)}</strong></p>
+        <div style="background: #f0fdf4; border-radius: 1rem; padding: 1rem; margin: 1rem 0;">
+            <p style="font-size: 2rem; font-weight: bold; color: #059669;">${notaFormatada} / 10</p>
+            <p>✅ Múltipla escolha: ${mcAcertos} de ${multipleChoiceQuestions.length} acertos</p>
+            <p>📝 Dissertativas: ${essayAnswers.filter(a=>a.trim()!=="").length} de ${essayQuestions.length} respondidas</p>
+        </div>
+        <p style="color: #64748b; font-size: 0.8rem;">Data: ${new Date().toLocaleString()}</p>
+        <button id="btnReiniciar" style="background: #059669; color: white; border: none; padding: 0.6rem 1.5rem; border-radius: 2rem; margin-top: 1rem; cursor: pointer;">⟳ Fazer Novamente</button>
+    `;
+    
+    containerQuestoes.parentNode.insertBefore(resultDiv, containerQuestoes.nextSibling);
+    
+    finalizeBtn.disabled = true;
+    finalizeBtn.style.opacity = "0.6";
+    finalizeBtn.style.cursor = "not-allowed";
+    
+    const btnReiniciar = document.getElementById('btnReiniciar');
+    if (btnReiniciar) {
+        btnReiniciar.addEventListener('click', function() {
+            localStorage.clear();
+            location.reload();
+        });
+    }
+    
+    return true;
+}
+
+function lockMCQuestion(questionIdx) {
+    const card = document.getElementById(`mc-card-${questionIdx}`);
+    if (!card) return;
+    const radios = card.querySelectorAll(`input[type="radio"]`);
+    radios.forEach(radio => { radio.disabled = true; });
+    card.classList.add('answered');
+    const options = card.querySelectorAll('.option-item');
+    options.forEach(opt => { opt.classList.add('disabled-option'); });
+    questionLocked[questionIdx] = true;
+}
+
+function updateMCFeedback(questionIdx) {
+    const card = document.getElementById(`mc-card-${questionIdx}`);
+    if (!card) return;
+    const feedbackDiv = card.querySelector('.feedback-message');
+    const selected = selectedAnswers[questionIdx];
+    if (selected === null) {
+        feedbackDiv.classList.add('feedback-hidden');
+        return;
+    }
+    const question = multipleChoiceQuestions[questionIdx];
+    const isCorrect = (selected === question.correta);
+    const correctLetter = String.fromCharCode(65 + question.correta);
+    const correctText = question.opcoes[question.correta];
+    let message = '';
+    if (isCorrect) {
+        message = `<span>✅</span> <strong>Acertou!</strong> ${question.explicacao}`;
+    } else {
+        message = `<span>❌</span> <strong>Errou!</strong> A resposta correta é ${correctLetter}: "${correctText}".<br> 📚 ${question.explicacao}`;
+    }
+    feedbackDiv.innerHTML = message;
+    feedbackDiv.classList.remove('feedback-hidden');
+    feedbackDiv.classList.add('feedback-correct');
+}
+
+function onSelectOption(questionIdx, optionIdx) {
+    if (quizBloqueado) {
+        alert("🚫 Avaliação bloqueada! Não é possível responder.");
+        return;
+    }
+    if (questionLocked[questionIdx]) {
+        alert("🔒 Esta questão já foi respondida e está travada.");
+        return;
+    }
+    if (selectedAnswers[questionIdx] !== null) return;
+    selectedAnswers[questionIdx] = optionIdx;
+    const radios = document.querySelectorAll(`input[name="mc-q${questionIdx}"]`);
+    radios.forEach((radio, idx) => { radio.checked = (idx === optionIdx); });
+    updateMCFeedback(questionIdx);
+    lockMCQuestion(questionIdx);
+    updateProgress();
+}
+
+function onEssayChange(questionIdx, value) {
+    if (quizBloqueado) return;
+    essayAnswers[questionIdx] = value;
+    updateProgress();
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+function renderQuestions() {
+    if (!container) return;
+    container.innerHTML = '';
+    
+    multipleChoiceQuestions.forEach((q, idx) => {
+        const card = document.createElement('div');
+        card.className = 'question-card';
+        card.id = `mc-card-${idx}`;
+        const header = document.createElement('div');
+        header.className = 'question-header';
+        header.innerHTML = `<div class="question-title"><span class="q-num">${idx+1}</span><span class="q-type">Múltipla Escolha</span><span class="question-text">${escapeHtml(q.pergunta)}</span></div>`;
+        card.appendChild(header);
+        const optionsUl = document.createElement('ul');
+        optionsUl.className = 'options-list';
+        q.opcoes.forEach((opcao, optIndex) => {
+            const li = document.createElement('li');
+            li.className = 'option-item';
+            const radioId = `mc-q${idx}_opt${optIndex}`;
+            const radio = document.createElement('input');
+            radio.type = 'radio';
+            radio.name = `mc-q${idx}`;
+            radio.value = optIndex;
+            radio.id = radioId;
+            radio.className = 'option-radio';
+            radio.addEventListener('change', (e) => { if (radio.checked) onSelectOption(idx, optIndex); });
+            const label = document.createElement('label');
+            label.htmlFor = radioId;
+            label.className = 'option-label';
+            const prefix = String.fromCharCode(65 + optIndex);
+            label.textContent = `${prefix}. ${opcao}`;
+            li.appendChild(radio);
+            li.appendChild(label);
+            optionsUl.appendChild(li);
+        });
+        card.appendChild(optionsUl);
+        const feedbackDiv = document.createElement('div');
+        feedbackDiv.className = 'feedback-message feedback-hidden';
+        card.appendChild(feedbackDiv);
+        container.appendChild(card);
+    });
+    
+    essayQuestions.forEach((q, idx) => {
+        const card = document.createElement('div');
+        card.className = 'essay-card';
+        const header = document.createElement('div');
+        header.className = 'essay-header';
+        const questionNum = idx + 11;
+        header.innerHTML = `<div class="question-title"><span class="q-num">${questionNum}</span><span class="q-type">Dissertativa</span><span class="question-text">${escapeHtml(q.pergunta)}</span></div>`;
+        card.appendChild(header);
+        const content = document.createElement('div');
+        content.className = 'essay-content';
+        content.innerHTML = `<textarea class="essay-textarea" id="essay-${idx}" rows="4" placeholder="Digite sua resposta aqui..."></textarea><div class="essay-status">📝 Capriche na resposta!</div>`;
+        card.appendChild(content);
+        container.appendChild(card);
+        const textarea = document.getElementById(`essay-${idx}`);
+        if (textarea) {
+            textarea.addEventListener('input', (e) => onEssayChange(idx, e.target.value));
+        }
+    });
+}
+
+function init() {
+    renderQuestions();
+    if (finalizeBtn) {
+        finalizeBtn.addEventListener('click', () => { finalizarAvaliacao(); });
+    }
+    updateProgress();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+console.log('✅ SISTEMA ANTI-TRAPAÇA ATIVADO');
+console.log('🔒 Limite de infrações: ' + MAX_INFRACOES);
 console.log('🔑 Código de desbloqueio: ' + CODIGO_DESBLOQUEIO);
-console.log('🖱️ Clique direito permitido: ' + MAX_CLIQUE_DIREITO + ' vezes');
+console.log('🚫 Ações bloqueadas: F5, Ctrl+R, Ctrl+F5, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A');
+console.log('🚫 Clique direito, seleção de texto, mudança de aba');
 console.log('🚫 Extensões bloqueadas: Allow Copy + e Enable Copy Paste - E.C.P');
