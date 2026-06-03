@@ -177,47 +177,98 @@ document.addEventListener('contextmenu', function(e) {
 });
 
 // ================================================================
-// PROTEÇÃO 7: BLOQUEIO DE SELEÇÃO DE TEXTO (arrastar o mouse)
+// ================================================================
+// PROTEÇÃO 7: BLOQUEIO DE SELEÇÃO E CÓPIA (VERSÃO CORRIGIDA)
+// Só bloqueia se o aluno tentar COPIAR após selecionar texto
 // ================================================================
 
-// Impede início de seleção com o mouse
-document.addEventListener('mousedown', function(e) {
+let selecaoAtiva = false;
+let selecaoTimeout = null;
+
+document.addEventListener('mouseup', function(e) {
     if (quizBloqueado) return;
-    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+    
+    const selecao = window.getSelection();
+    if (selecao && selecao.toString().length > 0) {
+        selecaoAtiva = true;
+        if (selecaoTimeout) clearTimeout(selecaoTimeout);
+        selecaoTimeout = setTimeout(() => {
+            selecaoAtiva = false;
+        }, 3000);
+    } else {
+        setTimeout(() => {
+            const novaSelecao = window.getSelection();
+            if (!novaSelecao || novaSelecao.toString().length === 0) {
+                selecaoAtiva = false;
+            }
+        }, 500);
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (quizBloqueado) return;
+    
+    if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        const selecao = window.getSelection();
+        if (selecao && selecao.toString().length > 0) {
+            e.preventDefault();
+            registrarInfracaoImediata('Tentativa de copiar texto selecionado (Ctrl+C)');
+            return false;
+        }
+    }
+});
+
+document.addEventListener('copy', function(e) {
+    if (quizBloqueado) return;
+    
+    const selecao = window.getSelection();
+    if (selecao && selecao.toString().length > 0) {
         e.preventDefault();
-        registrarInfracaoImediata('Tentativa de selecionar texto (arrastar mouse)');
+        registrarInfracaoImediata('Tentativa de copiar texto selecionado');
         return false;
     }
 });
 
-// Impede arrastar para selecionar
+document.addEventListener('contextmenu', function(e) {
+    if (quizBloqueado) return;
+    
+    const selecao = window.getSelection();
+    if (selecao && selecao.toString().length > 0) {
+        e.preventDefault();
+        registrarInfracaoImediata('Tentativa de copiar via menu de contexto');
+        return false;
+    } else {
+        e.preventDefault();
+        return false;
+    }
+});
+
 document.addEventListener('dragstart', function(e) {
     if (quizBloqueado) return;
     e.preventDefault();
-    registrarInfracaoImediata('Tentativa de arrastar para selecionar');
     return false;
 });
 
-// Impede início de seleção
 document.addEventListener('selectstart', function(e) {
     if (quizBloqueado) return;
-    if (e.target.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        registrarInfracaoImediata('Tentativa de selecionar texto');
-        return false;
+    if (e.target.tagName === 'TEXTAREA') {
+        return true;
     }
+    e.preventDefault();
+    return false;
 });
 
-// Impede seleção com Shift + setas
 document.addEventListener('keydown', function(e) {
     if (quizBloqueado) return;
     if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        e.preventDefault();
-        registrarInfracaoImediata('Tentativa de seleção com Shift + setas');
-        return false;
+        const selecao = window.getSelection();
+        if (selecao && selecao.toString().length > 0) {
+            e.preventDefault();
+            registrarInfracaoImediata('Tentativa de seleção com Shift + setas');
+            return false;
+        }
     }
 });
-
 // ================================================================
 // PROTEÇÃO 8: DETECÇÃO DE MUDANÇA DE ABA - BLOQUEIO IMEDIATO
 // ================================================================
