@@ -2,8 +2,17 @@
 // CONFIGURAÇÃO DO GOOGLE FORMS
 // ================================================================
 
-// URL do seu Google Forms (para redirecionamento)
-const FORMS_URL = "https://forms.gle/iQc8ifDwtHcXLRdN9";
+// ID do seu Google Forms
+const FORM_ID = "1FAIpQLSfg3o9glfFPFnGjR5I3jVT9nm1SvOoSO-sUwxxmJjgJdh-l5g";
+
+// ENTRY IDs dos campos
+const ENTRY_NOME = "entry.968658997";
+const ENTRY_MATRICULA = "entry.548467812";
+const ENTRY_NOTA = "entry.343607871";
+const ENTRY_DATA = "entry.585047661";
+
+// URL para envio
+const FORM_URL = `https://docs.google.com/forms/d/e/${FORM_ID}/formResponse`;
 
 // ================================================================
 // SISTEMA ANTI-TRAPAÇA - CONTADOR DE INFRAÇÕES
@@ -690,28 +699,24 @@ function finalizarAvaliacao() {
     const mcAcertos = selectedAnswers.filter((ans, idx) => ans === multipleChoiceQuestions[idx].correta).length;
     
     // ============================================================
-    // PREPARA OS DADOS PARA ENVIAR AO GOOGLE FORMS
+    // ENVIA OS DADOS DIRETAMENTE PARA O GOOGLE FORMS
     // ============================================================
-    const dadosAluno = {
-        nome: nome,
-        matricula: matricula,
-        nota: `${notaFormatada} / 10`,
-        data: dataHora,
-        acertos: `${mcAcertos} de ${multipleChoiceQuestions.length}`,
-        dissertativas: `${essayAnswers.filter(a=>a.trim()!=="").length} de ${essayQuestions.length}`
-    };
-    
-    // Salva no localStorage para recuperar depois (opcional)
-    localStorage.setItem('resultadoAvaliacao', JSON.stringify(dadosAluno));
-    
-    // ============================================================
-    // ABRE O GOOGLE FORMS PARA O ALUNO PREENCHER
-    // ============================================================
-    // Método 1: Abre em nova aba (mais confiável)
-    window.open(FORMS_URL, '_blank');
-    
-    // Método 2: Redireciona na mesma aba (descomente se preferir)
-    // window.location.href = FORMS_URL;
+    try {
+        const params = new URLSearchParams();
+        params.append(ENTRY_NOME, nome);
+        params.append(ENTRY_MATRICULA, matricula);
+        params.append(ENTRY_NOTA, `${notaFormatada} / 10`);
+        params.append(ENTRY_DATA, dataHora);
+        
+        const urlCompleta = `${FORM_URL}?${params.toString()}`;
+        
+        // Envia os dados (abre em nova aba)
+        window.open(urlCompleta, '_blank');
+        
+        console.log('✅ Dados enviados para o Google Forms');
+    } catch(e) {
+        console.log('❌ Erro ao enviar para o Forms:', e);
+    }
     
     // ============================================================
     // MOSTRA RESULTADO PARA O ALUNO
@@ -737,7 +742,7 @@ function finalizarAvaliacao() {
             <p>✅ Múltipla escolha: ${mcAcertos} de ${multipleChoiceQuestions.length} acertos</p>
             <p>📝 Dissertativas: ${essayAnswers.filter(a=>a.trim()!=="").length} de ${essayQuestions.length} respondidas</p>
         </div>
-        <p style="color: #64748b; font-size: 0.8rem;">📋 O formulário foi aberto em uma nova aba.<br>Preencha com seus dados e envie para o professor.<br>📅 Data: ${dataHora}</p>
+        <p style="color: #64748b; font-size: 0.8rem;">✅ Resultado enviado ao professor automaticamente!<br>📅 Data: ${dataHora}</p>
         <button id="btnReiniciar" style="background: #059669; color: white; border: none; padding: 0.6rem 1.5rem; border-radius: 2rem; margin-top: 1rem; cursor: pointer;">⟳ Fazer Novamente</button>
     `;
     
@@ -901,5 +906,5 @@ document.addEventListener('DOMContentLoaded', init);
 console.log('✅ SISTEMA ANTI-TRAPAÇA ATIVADO');
 console.log('🔒 Limite de infrações: ' + MAX_INFRACOES);
 console.log('🔑 Código de desbloqueio: ' + CODIGO_DESBLOQUEIO);
-console.log('📊 Ao finalizar, aluno será redirecionado para o Forms');
-console.log('📋 Link do Forms: ' + FORMS_URL);
+console.log('📊 Resultados enviados automaticamente para o Google Forms');
+console.log('📋 Entry IDs configurados: NOME, MATRÍCULA, NOTA, DATA');
