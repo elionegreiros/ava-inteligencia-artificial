@@ -1,7 +1,13 @@
 // ================================================================
+// CONFIGURAÇÃO DO GOOGLE FORMS
+// ================================================================
+
+// URL do seu Google Forms (para redirecionamento)
+const FORMS_URL = "https://forms.gle/iQc8ifDwtHcXLRdN9";
+
+// ================================================================
 // SISTEMA ANTI-TRAPAÇA - CONTADOR DE INFRAÇÕES
 // 3 tentativas = AVALIAÇÃO BLOQUEADA
-// CADA AÇÃO PROIBIDA = 1 INFRAÇÃO IMEDIATA
 // ================================================================
 
 const STORAGE_KEY = 'infracoesQuiz';
@@ -14,13 +20,6 @@ let totalInfracoes = parseInt(localStorage.getItem(STORAGE_KEY) || '0');
 let quizBloqueado = false;
 
 // ================================================================
-// CONTADOR DE CLIQUE DIREITO - BLOQUEIO IMEDIATO
-// ================================================================
-
-let cliqueDireitoCount = 0;
-const MAX_CLIQUE_DIREITO = 1; // Agora bloqueia no primeiro clique!
-
-// ================================================================
 // EXTENSÕES ESPECÍFICAS PARA BLOQUEAR
 // ================================================================
 
@@ -31,34 +30,30 @@ const EXTENSOES_BLOQUEADAS = [
 ];
 
 // ================================================================
-// PROTEÇÃO 1: BLOQUEIO DE ATUALIZAÇÃO DA PÁGINA (F5, Ctrl+R, Ctrl+F5)
+// PROTEÇÃO 1: BLOQUEIO DE ATUALIZAÇÃO DA PÁGINA
 // ================================================================
 
 document.addEventListener('keydown', function(e) {
     if (quizBloqueado) return;
     
-    // F5
     if (e.key === 'F5') {
         e.preventDefault();
         registrarInfracaoImediata('Tentativa de atualizar página (F5)');
         return false;
     }
     
-    // Ctrl+F5 (atualização forçada)
     if (e.ctrlKey && e.key === 'F5') {
         e.preventDefault();
         registrarInfracaoImediata('Tentativa de atualização forçada (Ctrl+F5)');
         return false;
     }
     
-    // Ctrl+R
     if ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R')) {
         e.preventDefault();
         registrarInfracaoImediata('Tentativa de atualizar página (Ctrl+R)');
         return false;
     }
     
-    // Ctrl+Shift+R (atualização forçada sem cache)
     if (e.ctrlKey && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
         e.preventDefault();
         registrarInfracaoImediata('Tentativa de atualização forçada (Ctrl+Shift+R)');
@@ -66,7 +61,6 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Bloqueia o botão de voltar/avançar do navegador
 history.pushState(null, null, location.href);
 window.addEventListener('popstate', function() {
     if (!quizBloqueado) {
@@ -171,15 +165,12 @@ document.addEventListener('cut', function(e) {
 document.addEventListener('contextmenu', function(e) {
     if (quizBloqueado) return;
     e.preventDefault();
-    cliqueDireitoCount++;
     registrarInfracaoImediata('Tentativa de clique direito');
     return false;
 });
 
 // ================================================================
-// ================================================================
-// PROTEÇÃO 7: BLOQUEIO DE SELEÇÃO E CÓPIA (VERSÃO CORRIGIDA)
-// Só bloqueia se o aluno tentar COPIAR após selecionar texto
+// PROTEÇÃO 7: BLOQUEIO DE SELEÇÃO DE TEXTO (APENAS NA TENTATIVA DE CÓPIA)
 // ================================================================
 
 let selecaoAtiva = false;
@@ -195,13 +186,6 @@ document.addEventListener('mouseup', function(e) {
         selecaoTimeout = setTimeout(() => {
             selecaoAtiva = false;
         }, 3000);
-    } else {
-        setTimeout(() => {
-            const novaSelecao = window.getSelection();
-            if (!novaSelecao || novaSelecao.toString().length === 0) {
-                selecaoAtiva = false;
-            }
-        }, 500);
     }
 });
 
@@ -258,19 +242,8 @@ document.addEventListener('selectstart', function(e) {
     return false;
 });
 
-document.addEventListener('keydown', function(e) {
-    if (quizBloqueado) return;
-    if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-        const selecao = window.getSelection();
-        if (selecao && selecao.toString().length > 0) {
-            e.preventDefault();
-            registrarInfracaoImediata('Tentativa de seleção com Shift + setas');
-            return false;
-        }
-    }
-});
 // ================================================================
-// PROTEÇÃO 8: DETECÇÃO DE MUDANÇA DE ABA - BLOQUEIO IMEDIATO
+// PROTEÇÃO 8: DETECÇÃO DE MUDANÇA DE ABA
 // ================================================================
 
 let ultimoFocoTime = Date.now();
@@ -279,7 +252,6 @@ document.addEventListener('visibilitychange', function() {
     if (quizBloqueado) return;
     
     if (document.hidden) {
-        // Aluno saiu da aba - registra imediatamente
         ultimoFocoTime = Date.now();
         registrarInfracaoImediata('Mudança de aba detectada');
     }
@@ -288,7 +260,6 @@ document.addEventListener('visibilitychange', function() {
 window.addEventListener('blur', function() {
     if (quizBloqueado) return;
     ultimoFocoTime = Date.now();
-    // Pequeno delay para não registrar falso positivo
     setTimeout(() => {
         if (document.hidden) {
             registrarInfracaoImediata('Janela perdeu foco (mudança de aba)');
@@ -337,7 +308,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ================================================================
-// PROTEÇÃO 11: DETECÇÃO ESPECÍFICA DE EXTENSÕES
+// PROTEÇÃO 11: DETECÇÃO DE EXTENSÕES
 // ================================================================
 
 function detectarExtensoesBloqueadas() {
@@ -349,28 +320,15 @@ function detectarExtensoesBloqueadas() {
         const el = todosElementos[i];
         const classes = (el.className || '').toString().toLowerCase();
         const id = (el.id || '').toLowerCase();
-        const innerText = (el.innerText || '').toLowerCase();
         
         for (let j = 0; j < EXTENSOES_BLOQUEADAS.length; j++) {
             const ext = EXTENSOES_BLOQUEADAS[j].toLowerCase();
-            
-            if (classes.includes(ext) || id.includes(ext) || innerText.includes(ext)) {
+            if (classes.includes(ext) || id.includes(ext)) {
                 registrarInfracaoImediata(`Extensão bloqueada detectada: ${EXTENSOES_BLOQUEADAS[j]}`);
                 return true;
             }
         }
     }
-    
-    const allElements = document.querySelectorAll('*');
-    for (let i = 0; i < Math.min(allElements.length, 50); i++) {
-        const el = allElements[i];
-        const computedStyle = window.getComputedStyle(el);
-        if (computedStyle.userSelect === 'text' && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
-            registrarInfracaoImediata('Extensão tentou modificar proteção de seleção');
-            return true;
-        }
-    }
-    
     return false;
 }
 
@@ -383,7 +341,7 @@ setInterval(function() {
 detectarExtensoesBloqueadas();
 
 // ================================================================
-// PROTEÇÃO 12: LIMPEZA DO CLIPBOARD
+// LIMPEZA DO CLIPBOARD
 // ================================================================
 
 async function limparClipboard() {
@@ -404,7 +362,7 @@ if (navigator.clipboard) {
 }
 
 // ================================================================
-// PROTEÇÃO 13: REAPLICAÇÃO CONSTANTE DE PROTEÇÕES CSS
+// REAPLICAÇÃO CONSTANTE DE PROTEÇÕES CSS
 // ================================================================
 
 const styleAntiCopy = document.createElement('style');
@@ -444,7 +402,7 @@ setInterval(function() {
 }, 2000);
 
 // ================================================================
-// FUNÇÃO PRINCIPAL DE REGISTRO DE INFRAÇÃO (BLOQUEIO IMEDIATO)
+// FUNÇÃO PRINCIPAL DE REGISTRO DE INFRAÇÃO
 // ================================================================
 
 function registrarInfracaoImediata(tipo) {
@@ -663,7 +621,6 @@ if (urlSenha === CODIGO_DESBLOQUEIO) {
     }, 500);
 }
 
-// Verifica bloqueio ao carregar
 window.addEventListener('load', function() {
     const estavaBloqueado = localStorage.getItem('quizBloqueado') === 'true';
     if (estavaBloqueado && !quizBloqueado) {
@@ -728,8 +685,37 @@ function finalizarAvaliacao() {
     
     const nota = calculateScore();
     const notaFormatada = nota.toFixed(1);
+    const matricula = studentIdInput.value.trim() || "Não informado";
+    const dataHora = new Date().toLocaleString();
     const mcAcertos = selectedAnswers.filter((ans, idx) => ans === multipleChoiceQuestions[idx].correta).length;
     
+    // ============================================================
+    // PREPARA OS DADOS PARA ENVIAR AO GOOGLE FORMS
+    // ============================================================
+    const dadosAluno = {
+        nome: nome,
+        matricula: matricula,
+        nota: `${notaFormatada} / 10`,
+        data: dataHora,
+        acertos: `${mcAcertos} de ${multipleChoiceQuestions.length}`,
+        dissertativas: `${essayAnswers.filter(a=>a.trim()!=="").length} de ${essayQuestions.length}`
+    };
+    
+    // Salva no localStorage para recuperar depois (opcional)
+    localStorage.setItem('resultadoAvaliacao', JSON.stringify(dadosAluno));
+    
+    // ============================================================
+    // ABRE O GOOGLE FORMS PARA O ALUNO PREENCHER
+    // ============================================================
+    // Método 1: Abre em nova aba (mais confiável)
+    window.open(FORMS_URL, '_blank');
+    
+    // Método 2: Redireciona na mesma aba (descomente se preferir)
+    // window.location.href = FORMS_URL;
+    
+    // ============================================================
+    // MOSTRA RESULTADO PARA O ALUNO
+    // ============================================================
     const containerQuestoes = document.getElementById('questionsContainer');
     if (containerQuestoes) containerQuestoes.style.display = 'none';
     
@@ -751,7 +737,7 @@ function finalizarAvaliacao() {
             <p>✅ Múltipla escolha: ${mcAcertos} de ${multipleChoiceQuestions.length} acertos</p>
             <p>📝 Dissertativas: ${essayAnswers.filter(a=>a.trim()!=="").length} de ${essayQuestions.length} respondidas</p>
         </div>
-        <p style="color: #64748b; font-size: 0.8rem;">Data: ${new Date().toLocaleString()}</p>
+        <p style="color: #64748b; font-size: 0.8rem;">📋 O formulário foi aberto em uma nova aba.<br>Preencha com seus dados e envie para o professor.<br>📅 Data: ${dataHora}</p>
         <button id="btnReiniciar" style="background: #059669; color: white; border: none; padding: 0.6rem 1.5rem; border-radius: 2rem; margin-top: 1rem; cursor: pointer;">⟳ Fazer Novamente</button>
     `;
     
@@ -915,6 +901,5 @@ document.addEventListener('DOMContentLoaded', init);
 console.log('✅ SISTEMA ANTI-TRAPAÇA ATIVADO');
 console.log('🔒 Limite de infrações: ' + MAX_INFRACOES);
 console.log('🔑 Código de desbloqueio: ' + CODIGO_DESBLOQUEIO);
-console.log('🚫 Ações bloqueadas: F5, Ctrl+R, Ctrl+F5, Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+A');
-console.log('🚫 Clique direito, seleção de texto, mudança de aba');
-console.log('🚫 Extensões bloqueadas: Allow Copy + e Enable Copy Paste - E.C.P');
+console.log('📊 Ao finalizar, aluno será redirecionado para o Forms');
+console.log('📋 Link do Forms: ' + FORMS_URL);
